@@ -8,6 +8,8 @@ $TTL 3600
                         )
 
 @       IN      NS      ns1.test.ru.
+@       IN      NS      ns2.test.ru.
+@       IN      NS      ns3.test.ru.
 
 @       IN      A       10.13.1.34
 www     IN      A       10.13.1.34
