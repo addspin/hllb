@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func getFileHash(path string) (string, error) {
+func GetFileHash(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -19,10 +19,5 @@ func getFileHash(path string) (string, error) {
 		return "", err
 	}
 
-	return hex.EncodeToString(h.Sum(nil)), nil
-}
-
-func GetHash(path string) (string, error) {
-	h := sha256.New()
 	return hex.EncodeToString(h.Sum(nil)), nil
 }

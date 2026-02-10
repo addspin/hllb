@@ -6,9 +6,7 @@ import (
 	"io"
 	"log"
 	"net/netip"
-	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"codeberg.org/miekg/dns"
@@ -19,87 +17,45 @@ const (
 	addr = ":1053"
 )
 
-type zoneRecord struct {
-	A  []string
-	NS []string
-}
+// var zoneMutex sync.RWMutex
 
-var zoneMutex sync.RWMutex
-var zone map[string]zoneRecord
-
-func initZone() map[string]zoneRecord {
-	zone := make(map[string]zoneRecord)
-	f, err := os.Open("./zone/test.ru")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	zp := dns.NewZoneParser(f, "test.ru", "test.ru")
-	for rr, err := range zp.RRs() {
-		if err != nil {
-			log.Fatal(err)
-		}
-		if rr == nil { // <‑‑ protect against nil RR
-			continue
-		}
-		name := strings.TrimSuffix(strings.ToLower(rr.Header().Name), ".")
-		record := zone[name] // Получаем текущую структуру
-		switch rr := rr.(type) {
-		case *dns.A:
-			record.A = append(record.A, rr.A.String())
-		case *dns.NS:
-			record.NS = append(record.NS, rr.Ns)
-
-		}
-		zone[name] = record // После изменений в норвой переменной, записываем обратно в структуру
-	}
-	return zone
-}
-
-// func getFileHash(path string) (string, error) {
-// 	f, err := os.Open(path)
+// func initZone() map[string]zoneRecord {
+// 	zone := make(map[string]zoneRecord)
+// 	f, err := os.Open("./zone/test.ru")
 // 	if err != nil {
-// 		return "", err
-// 	}
-// 	defer f.Close()
-
-// 	h := sha256.New()
-// 	if _, err := io.Copy(h, f); err != nil {
-// 		return "", err
+// 		log.Fatal(err)
 // 	}
 
-// 	return hex.EncodeToString(h.Sum(nil)), nil
-// }
+// 	zp := dns.NewZoneParser(f, "test.ru", "test.ru")
+// 	for rr, err := range zp.RRs() {
+// 		if err != nil {
+// 			log.Fatal(err)
+// 		}
+// 		if rr == nil { // <‑‑ protect against nil RR
+// 			continue
+// 		}
+// 		name := strings.TrimSuffix(strings.ToLower(rr.Header().Name), ".")
+// 		record := zone[name] // Получаем текущую структуру
+// 		switch rr := rr.(type) {
+// 		case *dns.A:
+// 			record.A = append(record.A, rr.A.String())
+// 		case *dns.NS:
+// 			record.NS = append(record.NS, rr.Ns)
 
-func watchZoneFile(path string, interval time.Duration) {
-	// Запоминаем начальный хеш
-	lastHash, _ := utils.GetHash(path)
+//			}
+//			zone[name] = record // После изменений в норвой переменной, записываем обратно в структуру
+//		}
+//		return zone
+//	}
+zone = utils
 
-	ticker := time.NewTicker(interval)
-	for range ticker.C {
-		currentHash, err := utils.GetHash(path)
-		if err != nil {
-			continue
-		}
-
-		if currentHash != lastHash {
-			log.Printf("Хеш изменился [%s], обновляю зону...", currentHash[:8])
-
-			newZone := initZone()
-
-			zoneMutex.Lock()
-			zone = newZone
-			zoneMutex.Unlock()
-
-			lastHash = currentHash
-		}
-	}
-}
+// var zone map[string]ZoneRecord
 
 func main() {
-	zone = initZone()
+	// utils.InitZone()
 
-	go watchZoneFile("./zone/test.ru", 5*time.Second)
+
+	go utils.WatchZoneFile("./zone/test.ru", 5*time.Second)
 
 	dns.HandleFunc(".", handleDNS)
 	go func() {
@@ -129,9 +85,6 @@ func handleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 	resp.Authoritative = true
 
 	queryNormDomainName := strings.TrimSuffix(strings.ToLower(qyeryDomainName), ".")
-	for key, value := range zone {
-		log.Println("key:", key, "value:", value)
-	}
 
 	if data, ok := zone[queryNormDomainName]; ok {
 		switch qtype {
