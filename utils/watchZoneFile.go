@@ -25,7 +25,7 @@ func WatchZoneFile(path string, interval time.Duration) {
 			newZone := InitZone()
 
 			zoneMutex.Lock()
-			zone = newZone
+			Zone = newZone
 			zoneMutex.Unlock()
 
 			lastHash = currentHash

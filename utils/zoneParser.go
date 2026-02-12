@@ -13,11 +13,10 @@ type ZoneRecord struct {
 	NS []string
 }
 
-//var zone map[string]ZoneRecord
+var Zone = make(map[string]ZoneRecord)
 
-// zone =
 func InitZone() map[string]ZoneRecord {
-	zone = make(map[string]ZoneRecord)
+	tmpZone := make(map[string]ZoneRecord)
 	f, err := os.Open("./zone/test.ru")
 	if err != nil {
 		log.Fatal(err)
@@ -32,7 +31,8 @@ func InitZone() map[string]ZoneRecord {
 			continue
 		}
 		name := strings.TrimSuffix(strings.ToLower(rr.Header().Name), ".")
-		record := zone[name] // Получаем текущую структуру
+
+		record := tmpZone[name] // Получаем текущую структуру
 		switch rr := rr.(type) {
 		case *dns.A:
 			record.A = append(record.A, rr.A.String())
@@ -40,7 +40,8 @@ func InitZone() map[string]ZoneRecord {
 			record.NS = append(record.NS, rr.Ns)
 
 		}
-		zone[name] = record // После изменений в норвой переменной, записываем обратно в структуру
+		tmpZone[name] = record // После изменений в норвой переменной, записываем обратно в структуру
 	}
-	return zone
+	Zone = tmpZone
+	return Zone
 }
