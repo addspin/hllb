@@ -67,6 +67,9 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 							A:   rdata.A{Addr: ip},
 						}
 						resp.Answer = append(resp.Answer, a)
+						resp.Rcode = dns.RcodeSuccess
+						io.Copy(w, resp)
+
 					}
 				case dns.TypeNS:
 					for _, nsDomain := range Zone["test.ru"].NS {
@@ -76,6 +79,8 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 							NS:  rdata.NS{Ns: nsDomain},
 						}
 						resp.Answer = append(resp.Answer, ns)
+						resp.Rcode = dns.RcodeSuccess
+						io.Copy(w, resp)
 					}
 				}
 				resp.Rcode = dns.RcodeNameError
@@ -109,6 +114,8 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 					A:   rdata.A{Addr: ip},
 				}
 				resp.Answer = append(resp.Answer, a)
+				resp.Rcode = dns.RcodeSuccess
+				io.Copy(w, resp)
 			}
 		case dns.TypeNS:
 			if len(testQueryWildcard) > 2 {
@@ -118,6 +125,8 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 						NS:  rdata.NS{Ns: nsDomain},
 					}
 					resp.Answer = append(resp.Answer, ns)
+					resp.Rcode = dns.RcodeSuccess
+					io.Copy(w, resp)
 				}
 			} else {
 				log.Println("data.NS:", data.NS)
@@ -128,6 +137,8 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 						NS:  rdata.NS{Ns: nsDomain},
 					}
 					resp.Answer = append(resp.Answer, ns)
+					resp.Rcode = dns.RcodeSuccess
+					io.Copy(w, resp)
 				}
 			}
 		}
@@ -166,6 +177,8 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 						A:   rdata.A{Addr: ip},
 					}
 					resp.Answer = append(resp.Answer, a)
+					resp.Rcode = dns.RcodeSuccess
+					io.Copy(w, resp)
 				}
 			case dns.TypeNS:
 				for _, nsDomain := range Zone["test.ru"].NS {
@@ -175,6 +188,8 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 						NS:  rdata.NS{Ns: nsDomain},
 					}
 					resp.Answer = append(resp.Answer, ns)
+					resp.Rcode = dns.RcodeSuccess
+					io.Copy(w, resp)
 				}
 			}
 			if err := resp.Pack(); err != nil {
