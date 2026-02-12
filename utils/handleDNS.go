@@ -11,6 +11,10 @@ import (
 	"codeberg.org/miekg/dns/rdata"
 )
 
+var inZoneExists bool
+var testWildcard bool
+var values []string
+
 func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 	if len(req.Question) == 0 {
 		return
@@ -30,24 +34,128 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 	queryNormDomainName := strings.TrimSuffix(strings.ToLower(qyeryDomainName), ".")
 
 	// проверем вилдкард или нет ff.test.ru
-	testWildcard := strings.Split(queryNormDomainName, ".")
-	rootTest := strings.Join(testWildcard[1:], ".")
-	log.Println("TEST rootTest", rootTest)
-	log.Println("TEST testWildcard", testWildcard)
+	testQueryWildcard := strings.Split(queryNormDomainName, ".")
+	rootTest := strings.Join(testQueryWildcard[1:], ".")
+	// testWildcard := strings.HasPrefix(queryNormDomainName, "*")
 
-	if len(testWildcard) > 2 { //значит вилдкард
+	log.Println("TEST rootTest", rootTest)
+	log.Println("TEST testQueryWildcard", testQueryWildcard)
+
+	// Если в зоне есть запись с вилдкард например *.info
+	test := Zone
+	for t := range test {
+		testWildcard = strings.HasPrefix(t, "*.")
+		if testWildcard == true {
+			v := strings.Split(t, ".")
+			values = v
+			if values[1] == testQueryWildcard[1] {
+				data := Zone["*."+rootTest]
+				inZoneExists = true
+				log.Println("data:", data)
+				switch qtype {
+				case dns.TypeA:
+					log.Println("data A:", data.A)
+					for _, ipData := range data.A {
+						log.Println("domain wildcard in zone *.info:", ipData)
+						ip, _ := netip.ParseAddr(ipData)
+						replyName := qyeryDomainName
+						if !strings.HasSuffix(replyName, ".") {
+							replyName += "."
+						}
+						a := &dns.A{
+							Hdr: dns.Header{Name: replyName, Class: dns.ClassINET, TTL: 3600},
+							A:   rdata.A{Addr: ip},
+						}
+						resp.Answer = append(resp.Answer, a)
+					}
+				case dns.TypeNS:
+					for _, nsDomain := range Zone["test.ru"].NS {
+						log.Println("nsdomain wildcard in zone *.info:", nsDomain)
+						ns := &dns.NS{
+							Hdr: dns.Header{Name: nsDomain, Class: dns.ClassINET, TTL: 3600},
+							NS:  rdata.NS{Ns: nsDomain},
+						}
+						resp.Answer = append(resp.Answer, ns)
+					}
+				}
+				resp.Rcode = dns.RcodeNameError
+				if err := resp.Pack(); err != nil {
+					return
+				}
+				if _, err := io.Copy(w, resp); err != nil {
+					log.Printf("DNS write: %v", err)
+				}
+			}
+		}
+	}
+
+	// Если в зоне есть значение котрое запрашивает пользователь, отдаем
+	if data, ok := Zone[queryNormDomainName]; ok {
+		inZoneExists = true
+		log.Println("data:", data)
+		switch qtype {
+		case dns.TypeA:
+			log.Println("data A:", data.A)
+			for _, ipData := range data.A {
+
+				log.Println("domain not wildcard:", ipData)
+				ip, _ := netip.ParseAddr(ipData)
+				replyName := qyeryDomainName
+				if !strings.HasSuffix(replyName, ".") {
+					replyName += "."
+				}
+				a := &dns.A{
+					Hdr: dns.Header{Name: replyName, Class: dns.ClassINET, TTL: 3600},
+					A:   rdata.A{Addr: ip},
+				}
+				resp.Answer = append(resp.Answer, a)
+			}
+		case dns.TypeNS:
+			if len(testQueryWildcard) > 2 {
+				for _, nsDomain := range Zone["test.ru"].NS {
+					ns := &dns.NS{
+						Hdr: dns.Header{Name: nsDomain, Class: dns.ClassINET, TTL: 3600},
+						NS:  rdata.NS{Ns: nsDomain},
+					}
+					resp.Answer = append(resp.Answer, ns)
+				}
+			} else {
+				log.Println("data.NS:", data.NS)
+				for _, nsDomain := range data.NS {
+					log.Println("nsDomain not wildcard:", nsDomain)
+					ns := &dns.NS{
+						Hdr: dns.Header{Name: nsDomain, Class: dns.ClassINET, TTL: 3600},
+						NS:  rdata.NS{Ns: nsDomain},
+					}
+					resp.Answer = append(resp.Answer, ns)
+				}
+			}
+		}
+		resp.Rcode = dns.RcodeNameError
+		if err := resp.Pack(); err != nil {
+			return
+		}
+		if _, err := io.Copy(w, resp); err != nil {
+			log.Printf("DNS write: %v", err)
+		}
+	}
+
+	// Если передается вилдкард запись, и в зоне есть запись *
+	if len(testQueryWildcard) > 2 && inZoneExists != true { //значит вилдкард
 		// проверем вилдкард запись в файле зоны *
 		if _, ok := Zone["*.test.ru"]; !ok {
 			resp.Rcode = dns.RcodeNameError
 			resp.Pack()
 			io.Copy(w, resp)
+			log.Println("В зоне нет *")
+			return
 		}
 		// если корневой домен верный и есть в зоне, тогда
 		if data, ok := Zone[rootTest]; ok {
 			switch qtype {
 			case dns.TypeA:
 				for _, ipData := range data.A {
-					log.Println("ADomain:", ipData)
+					log.Println("ADomain Wildcard:", ipData)
 					ip, _ := netip.ParseAddr(ipData)
 					replyName := qyeryDomainName
 					if !strings.HasSuffix(replyName, ".") {
@@ -61,7 +169,7 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 				}
 			case dns.TypeNS:
 				for _, nsDomain := range Zone["test.ru"].NS {
-					log.Println("nsDomain:", nsDomain)
+					log.Println("nsDomain Wildcard:", nsDomain)
 					ns := &dns.NS{
 						Hdr: dns.Header{Name: nsDomain, Class: dns.ClassINET, TTL: 3600},
 						NS:  rdata.NS{Ns: nsDomain},
@@ -69,93 +177,21 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 					resp.Answer = append(resp.Answer, ns)
 				}
 			}
-
 			if err := resp.Pack(); err != nil {
 				return
 			}
 			if _, err := io.Copy(w, resp); err != nil {
 				log.Printf("DNS write: %v", err)
 			}
-		}
-
-	}
-
-	if data, ok := Zone[queryNormDomainName]; ok {
-		switch qtype {
-		case dns.TypeA:
-			for _, ipData := range data.A {
-				ip, _ := netip.ParseAddr(ipData)
-				replyName := qyeryDomainName
-				if !strings.HasSuffix(replyName, ".") {
-					replyName += "."
-				}
-				a := &dns.A{
-					Hdr: dns.Header{Name: replyName, Class: dns.ClassINET, TTL: 3600},
-					A:   rdata.A{Addr: ip},
-				}
-				resp.Answer = append(resp.Answer, a)
-			}
-		case dns.TypeNS:
-			for _, nsDomain := range data.NS {
-				log.Println("nsDomain not wildcard:", nsDomain)
-				ns := &dns.NS{
-					Hdr: dns.Header{Name: nsDomain, Class: dns.ClassINET, TTL: 3600},
-					NS:  rdata.NS{Ns: nsDomain},
-				}
-				resp.Answer = append(resp.Answer, ns)
-			}
-		}
-		resp.Rcode = dns.RcodeNameError
-		if err := resp.Pack(); err != nil {
-			return
-		}
-		if _, err := io.Copy(w, resp); err != nil {
-			log.Printf("DNS write: %v", err)
 		} else {
 			resp.Rcode = dns.RcodeNameError
 			resp.Pack()
 			io.Copy(w, resp)
+			return
 		}
 	}
 
-	// if data, ok := Zone["*.test.ru"]; ok {
-	// 	// nsData := Zone["test.ru"]
-	// 	// log.Println("nsData", nsData)
-	// 	switch qtype {
-	// 	case dns.TypeA:
-	// 		for _, ipData := range data.A {
-	// 			log.Println("ADomain:", ipData)
-	// 			ip, _ := netip.ParseAddr(ipData)
-	// 			replyName := qyeryDomainName
-	// 			if !strings.HasSuffix(replyName, ".") {
-	// 				replyName += "."
-	// 			}
-	// 			a := &dns.A{
-	// 				Hdr: dns.Header{Name: replyName, Class: dns.ClassINET, TTL: 3600},
-	// 				A:   rdata.A{Addr: ip},
-	// 			}
-	// 			resp.Answer = append(resp.Answer, a)
-	// 		}
-	// 	case dns.TypeNS:
-	// 		for _, nsDomain := range Zone["test.ru"].NS {
-	// 			log.Println("nsDomain:", nsDomain)
-	// 			ns := &dns.NS{
-	// 				Hdr: dns.Header{Name: nsDomain, Class: dns.ClassINET, TTL: 3600},
-	// 				NS:  rdata.NS{Ns: nsDomain},
-	// 			}
-	// 			resp.Answer = append(resp.Answer, ns)
-	// 		}
-	// 	}
-
-	// 	if err := resp.Pack(); err != nil {
-	// 		return
-	// 	}
-	// 	if _, err := io.Copy(w, resp); err != nil {
-	// 		log.Printf("DNS write: %v", err)
-	// 	}
-	// } else {
-	// 	resp.Rcode = dns.RcodeNameError
-	// 	resp.Pack()
-	// 	io.Copy(w, resp)
-	// }
+	resp.Rcode = dns.RcodeNameError
+	resp.Pack()
+	io.Copy(w, resp)
 }

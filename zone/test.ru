@@ -13,7 +13,7 @@ $TTL 3600
 @       IN      A       10.13.1.34
 www     IN      A       10.13.1.34
 
-admin     IN      A       10.13.1.34
-*     IN      A       10.13.1.34
+admin     IN      A       10.13.1.36
 
+*.info     IN      A       10.13.1.33
 
