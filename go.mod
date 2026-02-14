@@ -2,7 +2,7 @@ module hllb
 
 go 1.25.5
 
-require codeberg.org/miekg/dns v0.6.48
+require codeberg.org/miekg/dns v0.6.49
 
 require (
 	golang.org/x/crypto v0.47.0 // indirect

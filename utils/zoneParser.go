@@ -40,7 +40,7 @@ func InitZone() map[string]ZoneRecord {
 			record.NS = append(record.NS, rr.Ns)
 
 		}
-		tmpZone[name] = record // После изменений в норвой переменной, записываем обратно в структуру
+		tmpZone[name] = record // После изменений в новой переменной, записываем обратно в структуру
 	}
 	Zone = tmpZone
 	return Zone
