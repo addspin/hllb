@@ -35,7 +35,7 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 	}
 
 	rootDomain := strings.Join(parts[1:], ".")
-	log.Println("rootDomain", rootDomain)
+	// log.Println("rootDomain", rootDomain)
 
 	// Проверяем wildcard записи в зоне (например *.info) и отдадем значения по типу msg.info.test.ru
 	if found := handleWildcardMatch(w, resp, queryDomainName, queryNorm, rootDomain, queryType); found {
@@ -44,11 +44,6 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 
 	// Проверяем точное совпадение
 	if found := handleExactMatch(w, resp, queryDomainName, queryNorm, parts, queryType); found {
-		return
-	}
-
-	// Проверяем wildcard записи в зоне (например *.info) отдаем значение самой записи если в запросе info.test.ru
-	if found := handleExactMatchRecord(w, resp, queryDomainName, queryNorm, parts, queryType); found {
 		return
 	}
 
@@ -80,63 +75,39 @@ func handleWildcardMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, query
 		if !strings.HasPrefix(zoneKey, "*.") {
 			continue
 		}
-		zoneParts := strings.Split(zoneKey, ".")
+		zoneParts := strings.Split(zoneKey, ".") // разбиение запроса пользователя на части info test ru
 		if len(zoneParts) < 2 {
 			continue
 		}
 
-		queryParts := strings.Split(queryNorm, ".") // разбиение запроса пользователя на части info test ru
-		if len(queryParts) < 2 || zoneParts[1] != queryParts[1] {
-			continue
-		}
+		wildRecord := strings.TrimPrefix(zoneKey, "*.") // находим запись в зоне с началом *. - получим info.test.ru
+		if len(wildRecord) != 0 {
+			if strings.Contains(queryNorm, wildRecord) { // проверяем если вхождение info.test.ru в запросе пользователя напрмиерв dd.asdf.info.test.ru
+				wildcardKey := "*." + wildRecord // если есть получаем *.info.test.ru и извлекаем ip из А записи в зоне
+				wildcardData := utils.Zone[wildcardKey]
 
-		wildcardKey := "*." + rootDomain // *.test.ru
-		log.Println("rootDomain", rootDomain)
-		wildcardData := utils.Zone[wildcardKey]
-
-		switch qType {
-		case dns.TypeA:
-			addResponseARecords(resp, queryDomain, wildcardData.A)
-		case dns.TypeNS:
-			addResponseNSRecords(resp, wildcardData.NS)
-		}
-
-		sendResponse(w, resp, dns.RcodeSuccess)
-		return true
-	}
-	return false
-}
-
-// Проверяем wildcard записи в зоне (например *.info) отдаем значение самой записи если в запросе info.test.ru
-func handleExactMatchRecord(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNorm string, parts []string, qType uint16) bool {
-	if len(parts) > 2 {
-		data, ok := utils.Zone["*."+queryNorm]
-		log.Println("DATA", data)
-		if !ok {
-			return false
-		}
-		switch qType {
-		case dns.TypeA:
-			addResponseARecords(resp, queryDomain, data.A)
-		case dns.TypeNS:
-			if len(parts) > 2 {
-				// Для поддоменов используем NS от корневого домена
-				if rootData, ok := utils.Zone["test.ru"]; ok {
-					addResponseNSRecords(resp, rootData.NS)
+				switch qType {
+				case dns.TypeA:
+					addResponseARecords(resp, queryDomain, wildcardData.A)
+					log.Println("TEST")
+				case dns.TypeNS:
+					log.Println("TEST1-3")
+					if rootData, ok := utils.Zone["test.ru"]; ok {
+						addResponseNSRecords(resp, rootData.NS)
+					}
 				}
-			} else {
-				addResponseNSRecords(resp, data.NS)
+
+				sendResponse(w, resp, dns.RcodeSuccess)
+				return true
 			}
 		}
-
-		sendResponse(w, resp, dns.RcodeSuccess)
-		return true
 	}
 	return false
 }
 
 // Проверяем точное совпадение
 func handleExactMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNorm string, parts []string, qType uint16) bool {
+	log.Println("TEST 1-1")
 	data, ok := utils.Zone[queryNorm]
 	if !ok {
 		return false
@@ -146,13 +117,8 @@ func handleExactMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNor
 	case dns.TypeA:
 		addResponseARecords(resp, queryDomain, data.A)
 	case dns.TypeNS:
-		if len(parts) > 2 {
-			// Для поддоменов используем NS от корневого домена
-			if rootData, ok := utils.Zone["test.ru"]; ok {
-				addResponseNSRecords(resp, rootData.NS)
-			}
-		} else {
-			addResponseNSRecords(resp, data.NS)
+		if rootData, ok := utils.Zone["test.ru"]; ok {
+			addResponseNSRecords(resp, rootData.NS)
 		}
 	}
 
@@ -178,7 +144,7 @@ func handleWildcardFallback(w dns.ResponseWriter, resp *dns.Msg, queryDomain, ro
 		sendErrorResponse(w, resp, dns.RcodeNameError)
 		return true
 	}
-
+	log.Println("TEST 1-2")
 	switch qType {
 	case dns.TypeA:
 		addResponseARecords(resp, queryDomain, rootData.A)
