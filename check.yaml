@@ -1,0 +1,4 @@
+hostCheck:
+  - lb01.test.ru
+  - lb02.test.ru
+portCheck: 22

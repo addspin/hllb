@@ -20,7 +20,7 @@ func WatchZoneFile(path string, interval time.Duration) {
 		}
 
 		if currentHash != lastHash {
-			log.Printf("Хеш изменился [%s], обновляю зону...", currentHash[:8])
+			log.Printf("Хеш изменился [%s], обновляю зону %s", currentHash[:8], path)
 
 			newZone := InitZone()
 

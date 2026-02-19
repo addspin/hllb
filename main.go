@@ -1,30 +1,45 @@
 package main
 
 import (
+	"hllb/checks"
 	"hllb/handles"
 	"hllb/utils"
 	"log"
+	"os"
 	"time"
 
 	"codeberg.org/miekg/dns"
 )
 
-const (
-	addr = ":1053"
-)
-
 func main() {
 	s := utils.InitZone()
 	log.Println("НАЧАЛО", s)
-	go utils.WatchZoneFile("./zone/test.ru", 5*time.Second)
+	cfg, err := utils.ReadConfig("config.yaml")
+	if err != nil {
+		log.Fatal(err)
+	}
+	port := ":" + cfg.App.Port
+	checkZoneInterval := cfg.App.CheckZoneInterval
 
+	allFileZone, err := os.ReadDir("./zone")
+	if err != nil {
+		log.Fatal(err)
+	}
+	checks.TCPCheck()
+	// Получаем список файлов зон
+	for _, file := range allFileZone {
+		if file.IsDir() { // Пропускаем поддиректории
+			continue
+		}
+		go utils.WatchZoneFile("./zone/"+file.Name(), time.Duration(checkZoneInterval)*time.Second)
+	}
 	dns.HandleFunc(".", handles.HandleDNS)
 	go func() {
-		if err := dns.ListenAndServe(addr, "udp", nil); err != nil {
+		if err := dns.ListenAndServe(port, "udp", nil); err != nil {
 			log.Fatalf("DNS UDP: %v", err)
 		}
 	}()
-	if err := dns.ListenAndServe(addr, "tcp", nil); err != nil {
+	if err := dns.ListenAndServe(port, "tcp", nil); err != nil {
 		log.Fatalf("DNS TCP: %v", err)
 	}
 

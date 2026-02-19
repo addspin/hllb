@@ -1,2 +1,3 @@
-:
-  domain:
+app:
+  port: 1053
+  checkZoneInterval: 5
