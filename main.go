@@ -6,7 +6,6 @@ import (
 	"hllb/utils"
 	"log"
 	"os"
-	"time"
 
 	"codeberg.org/miekg/dns"
 )
@@ -20,18 +19,31 @@ func main() {
 	}
 	port := ":" + cfg.App.Port
 	checkZoneInterval := cfg.App.CheckZoneInterval
+	checkZoneIntervalType := cfg.App.CheckZoneIntervalType
+	repeatCheckTime := cfg.App.RepeatCheckInterval
+	repeatCheckTimeType := cfg.App.RepeatCheckIntervalType
+	repeatCheckFileTime := cfg.App.RepeatCheckFileInterval
+	repeatCheckFileTimeType := cfg.App.RepeatCheckFileIntervalType
 
 	allFileZone, err := os.ReadDir("./zone")
 	if err != nil {
 		log.Fatal(err)
 	}
-	checks.TCPCheck()
+	if cfg.App.ActiveCheck {
+		serverInterval := utils.SelectTime(repeatCheckTimeType, repeatCheckTime)
+		checkTCP := checks.StatusCodeTcp{}
+		go checkTCP.TCPCheck(serverInterval)
+		// Получаем конфигурацию check файла
+		go utils.WatchCheckFile("./check.yaml", utils.SelectTime(repeatCheckFileTimeType, repeatCheckFileTime))
+
+	}
+
 	// Получаем список файлов зон
 	for _, file := range allFileZone {
 		if file.IsDir() { // Пропускаем поддиректории
 			continue
 		}
-		go utils.WatchZoneFile("./zone/"+file.Name(), time.Duration(checkZoneInterval)*time.Second)
+		go utils.WatchZoneFile("./zone/"+file.Name(), utils.SelectTime(checkZoneIntervalType, checkZoneInterval))
 	}
 	dns.HandleFunc(".", handles.HandleDNS)
 	go func() {

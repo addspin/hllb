@@ -8,8 +8,14 @@ import (
 
 type Config struct {
 	App struct {
-		Port              string `yaml:"port"`
-		CheckZoneInterval int    `yaml:"checkZoneInterval"`
+		Port                        string `yaml:"port"`
+		CheckZoneInterval           int    `yaml:"checkZoneInterval"`
+		CheckZoneIntervalType       string `yaml:"checkZoneIntervalType"`
+		ActiveCheck                 bool   `yaml:"activeCheck"`
+		RepeatCheckInterval         int    `yaml:"repeatCheckInterval"`
+		RepeatCheckIntervalType     string `yaml:"repeatCheckIntervalType"`
+		RepeatCheckFileInterval     int    `yaml:"repeatCheckFileInterval"`
+		RepeatCheckFileIntervalType string `yaml:"repeatCheckFileIntervalType"`
 	} `yaml:"app"`
 }
 

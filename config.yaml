@@ -1,3 +1,9 @@
 app:
   port: 1053
   checkZoneInterval: 5
+  checkZoneIntervalType: seconds
+  activeCheck: true
+  repeatCheckInterval: 3
+  repeatCheckIntervalType: seconds
+  repeatCheckFileInterval: 3
+  repeatCheckFileIntervalType: seconds

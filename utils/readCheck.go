@@ -11,16 +11,16 @@ type CheckConfig struct {
 	PortCheck int      `yaml:"portCheck"`
 }
 
-func ReadCheckConfig(path string) (*CheckConfig, error) {
+var CheckFile CheckConfig
+
+func ReadCheckConfig(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var cfg CheckConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+	if err := yaml.Unmarshal(data, &CheckFile); err != nil {
+		return err
 	}
-
-	return &cfg, nil
+	return nil
 }
