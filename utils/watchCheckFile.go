@@ -10,7 +10,7 @@ func WatchCheckFile(path string, interval time.Duration) {
 	lastHash, _ := GetFileHash(path)
 	err := ReadCheckConfig(path)
 	if err != nil {
-		log.Println("Ошибка чтения %s", err)
+		log.Fatalf("Ошибка чтения %s", err)
 	}
 
 	ticker := time.NewTicker(interval)
@@ -25,7 +25,7 @@ func WatchCheckFile(path string, interval time.Duration) {
 
 			err := ReadCheckConfig(path)
 			if err != nil {
-				log.Println("Ошибка чтения %s", err)
+				log.Fatalf("Ошибка чтения %s", err)
 			}
 
 			lastHash = currentHash

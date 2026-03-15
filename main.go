@@ -30,12 +30,12 @@ func main() {
 		log.Fatal(err)
 	}
 	if cfg.App.ActiveCheck {
+		// Получаем конфигурацию check файла
+		go utils.WatchCheckFile("./check.yaml", utils.SelectTime(repeatCheckFileTimeType, repeatCheckFileTime))
+		// Проверяем досупность серверов
 		serverInterval := utils.SelectTime(repeatCheckTimeType, repeatCheckTime)
 		checkTCP := checks.StatusCodeTcp{}
 		go checkTCP.TCPCheck(serverInterval)
-		// Получаем конфигурацию check файла
-		go utils.WatchCheckFile("./check.yaml", utils.SelectTime(repeatCheckFileTimeType, repeatCheckFileTime))
-
 	}
 
 	// Получаем список файлов зон
