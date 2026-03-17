@@ -5,13 +5,14 @@ import (
 	"time"
 )
 
-func WatchCheckFile(path string, interval time.Duration) {
+func WatchCheckFile(path string, interval time.Duration, ready chan<- struct{}) {
 	// Запоминаем начальный хеш
 	lastHash, _ := GetFileHash(path)
 	err := ReadCheckConfig(path)
 	if err != nil {
-		log.Fatalf("Ошибка чтения %s", err)
+		log.Fatalf("Error read check file config %s", err)
 	}
+	close(ready)
 
 	ticker := time.NewTicker(interval)
 	for range ticker.C {
@@ -21,11 +22,11 @@ func WatchCheckFile(path string, interval time.Duration) {
 		}
 
 		if currentHash != lastHash {
-			log.Printf("Хеш изменился [%s], обновляю check файл %s", currentHash[:8], path)
+			log.Printf("Hesh change [%s], update check file %s", currentHash[:8], path)
 
 			err := ReadCheckConfig(path)
 			if err != nil {
-				log.Fatalf("Ошибка чтения %s", err)
+				log.Fatalf("Error read check file  %s", err)
 			}
 
 			lastHash = currentHash

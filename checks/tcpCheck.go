@@ -10,8 +10,6 @@ import (
 )
 
 type StatusCodeTcp struct {
-	//ExitCodeTcp bool
-	//Server      string
 	MutexTcp sync.Mutex
 }
 
@@ -35,26 +33,25 @@ func (s *StatusCodeTcp) checkPort() {
 	defer s.MutexTcp.Unlock()
 
 	c := utils.CheckFile
-	log.Println("TEST", c)
 	if len(c.HostCheck) == 0 {
 		log.Println("checkItems: No server for check list")
 	}
 	port := c.PortCheck
+	newPool := make([]string, 0, len(c.HostCheck))
 
 	for _, server := range c.HostCheck {
 		log.Println("checkItems:", server)
-		conn, err := net.Dial("tcp", server+":"+strconv.Itoa(port))
+		conn, err := net.DialTimeout("tcp", server+":"+strconv.Itoa(port), 1*time.Second)
 		if err != nil {
-			//s.ExitCodeTcp = false // port is not available
 			log.Println("Connection failed")
 		} else {
-			ValidPoolHost = append(ValidPoolHost, server)
-			//s.ExitCodeTcp = true // port is available
+			newPool = append(newPool, server)
 			log.Println("Connection established")
 			connErr := conn.Close()
 			if connErr != nil {
-				log.Fatal(connErr)
+				log.Printf("Error close connections %s", connErr)
 			}
 		}
+		ValidPoolHost = newPool
 	}
 }

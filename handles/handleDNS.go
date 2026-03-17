@@ -2,6 +2,7 @@ package handles
 
 import (
 	"context"
+	"hllb/checks"
 	"hllb/utils"
 	"io"
 	"log"
@@ -158,6 +159,18 @@ func handleWildcardFallback(w dns.ResponseWriter, resp *dns.Msg, queryDomain, ro
 	return true
 }
 
+func hostAlive(ip string) bool {
+	if len(checks.ValidPoolHost) == 0 {
+		return true
+	}
+	for _, liveIP := range checks.ValidPoolHost {
+		if ip == liveIP {
+			return true
+		}
+	}
+	return false
+}
+
 func addResponseARecords(resp *dns.Msg, responseDomain string, ips []string) {
 	responseDomain = addTrailingDot(responseDomain)
 
@@ -168,6 +181,9 @@ func addResponseARecords(resp *dns.Msg, responseDomain string, ips []string) {
 			continue
 		}
 
+		if !hostAlive(ipStr) { // пропускаем мёртвые серверы
+			continue
+		}
 		a := &dns.A{
 			Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
 			A:   rdata.A{Addr: ip},

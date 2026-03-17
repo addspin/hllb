@@ -30,8 +30,10 @@ func main() {
 		log.Fatal(err)
 	}
 	if cfg.App.ActiveCheck {
+		ready := make(chan struct{})
 		// Получаем конфигурацию check файла
-		go utils.WatchCheckFile("./check.yaml", utils.SelectTime(repeatCheckFileTimeType, repeatCheckFileTime))
+		go utils.WatchCheckFile("./check.yaml", utils.SelectTime(repeatCheckFileTimeType, repeatCheckFileTime), ready)
+		<-ready // если конфиг получен
 		// Проверяем досупность серверов
 		serverInterval := utils.SelectTime(repeatCheckTimeType, repeatCheckTime)
 		checkTCP := checks.StatusCodeTcp{}

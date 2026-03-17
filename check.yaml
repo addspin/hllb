@@ -1,4 +1,4 @@
 hostCheck:
-  - lb01.test.ru
+  - 10.13.1.36
   - 176.125.254.184
 portCheck: 22
