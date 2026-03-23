@@ -3,6 +3,7 @@ app:
   checkZoneInterval: 5
   checkZoneIntervalType: seconds
   activeCheck: true
+  algorithmCheck: RR
   repeatCheckInterval: 3
   repeatCheckIntervalType: seconds
   repeatCheckFileInterval: 3

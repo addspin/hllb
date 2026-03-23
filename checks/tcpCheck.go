@@ -52,6 +52,8 @@ func (s *StatusCodeTcp) checkPort() {
 				log.Printf("Error close connections %s", connErr)
 			}
 		}
-		ValidPoolHost = newPool
 	}
+	ValidPoolHost = newPool
+	log.Printf("ValidPoolHost %s", ValidPoolHost)
+	
 }

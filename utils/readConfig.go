@@ -12,6 +12,7 @@ type Config struct {
 		CheckZoneInterval           int    `yaml:"checkZoneInterval"`
 		CheckZoneIntervalType       string `yaml:"checkZoneIntervalType"`
 		ActiveCheck                 bool   `yaml:"activeCheck"`
+		AlgorithmCheck              string `yaml:"algorithmCheck"`
 		RepeatCheckInterval         int    `yaml:"repeatCheckInterval"`
 		RepeatCheckIntervalType     string `yaml:"repeatCheckIntervalType"`
 		RepeatCheckFileInterval     int    `yaml:"repeatCheckFileInterval"`

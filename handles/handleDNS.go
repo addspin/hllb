@@ -2,7 +2,7 @@ package handles
 
 import (
 	"context"
-	"hllb/checks"
+	"hllb/algorithm"
 	"hllb/utils"
 	"io"
 	"log"
@@ -38,7 +38,7 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 	rootDomain := strings.Join(parts[1:], ".")
 	// log.Println("rootDomain", rootDomain)
 
-	// Проверяем wildcard записи в зоне (например *.info) и отдадем значения по типу msg.info.test.ru
+	// Проверяем wildcard записи в зоне (например *.info) и отдаем значения по типу msg.info.test.ru
 	if found := handleWildcardMatch(w, resp, queryDomainName, queryNorm, rootDomain, queryType); found {
 		return
 	}
@@ -83,13 +83,13 @@ func handleWildcardMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, query
 
 		wildRecord := strings.TrimPrefix(zoneKey, "*.") // находим запись в зоне с началом *. - получим info.test.ru
 		if len(wildRecord) != 0 {
-			if strings.Contains(queryNorm, wildRecord) { // проверяем если вхождение info.test.ru в запросе пользователя напрмиерв dd.asdf.info.test.ru
+			if strings.Contains(queryNorm, wildRecord) { // проверяем если вхождение info.test.ru в запросе пользователя например dd.asdf.info.test.ru
 				wildcardKey := "*." + wildRecord // если есть получаем *.info.test.ru и извлекаем ip из А записи в зоне
 				wildcardData := utils.Zone[wildcardKey]
 
 				switch qType {
 				case dns.TypeA:
-					addResponseARecords(resp, queryDomain, wildcardData.A)
+					addResponseARecords(w, resp, queryDomain, wildcardData.A)
 					log.Println("TEST")
 				case dns.TypeNS:
 					log.Println("TEST1-3")
@@ -116,7 +116,7 @@ func handleExactMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNor
 
 	switch qType {
 	case dns.TypeA:
-		addResponseARecords(resp, queryDomain, data.A)
+		addResponseARecords(w, resp, queryDomain, data.A)
 	case dns.TypeNS:
 		if rootData, ok := utils.Zone["test.ru"]; ok {
 			addResponseNSRecords(resp, rootData.NS)
@@ -148,7 +148,7 @@ func handleWildcardFallback(w dns.ResponseWriter, resp *dns.Msg, queryDomain, ro
 	log.Println("TEST 1-2")
 	switch qType {
 	case dns.TypeA:
-		addResponseARecords(resp, queryDomain, rootData.A)
+		addResponseARecords(w, resp, queryDomain, rootData.A)
 	case dns.TypeNS:
 		if rootNS, ok := utils.Zone["test.ru"]; ok {
 			addResponseNSRecords(resp, rootNS.NS)
@@ -159,36 +159,73 @@ func handleWildcardFallback(w dns.ResponseWriter, resp *dns.Msg, queryDomain, ro
 	return true
 }
 
-func hostAlive(ip string) bool {
-	if len(checks.ValidPoolHost) == 0 {
-		return true
-	}
-	for _, liveIP := range checks.ValidPoolHost {
-		if ip == liveIP {
-			return true
-		}
-	}
-	return false
-}
+//func hostAlive(w dns.ResponseWriter, resp *dns.Msg, ip string) bool {
+//	if len(checks.ValidPoolHost) == 0 {
+//		sendErrorResponse(w, resp, dns.RcodeNameError)
+//	}
+//	for _, liveIP := range checks.ValidPoolHost {
+//		if ip == liveIP {
+//			return true
+//		}
+//	}
+//	return false
+//}
 
-func addResponseARecords(resp *dns.Msg, responseDomain string, ips []string) {
+// Добавляем отвтеты  с A записью
+func addResponseARecords(w dns.ResponseWriter, resp *dns.Msg, responseDomain string, ips []string) {
 	responseDomain = addTrailingDot(responseDomain)
+	cfg, err := utils.ReadConfig("config.yaml")
+	if err != nil {
+		log.Fatal(err)
+	}
+	checkCfg := cfg.App.ActiveCheck
 
-	for _, ipStr := range ips {
-		ip, err := netip.ParseAddr(ipStr)
-		if err != nil {
-			log.Printf("Failed to parse IP %s: %v", ipStr, err)
-			continue
+	if checkCfg {
+		// выбираем алгоритм
+		switch cfg.App.AlgorithmCheck {
+		case "RR":
+			{
+				ip, err := algorithm.RR()
+				if err != nil {
+					sendErrorResponse(w, resp, dns.RcodeNameError)
+				}
+
+				a := &dns.A{
+					Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
+					A:   rdata.A{Addr: ip},
+				}
+				resp.Answer = append(resp.Answer, a)
+			}
+
+		default:
+			{
+				ip, err := algorithm.RR()
+				if err != nil {
+					sendErrorResponse(w, resp, dns.RcodeNameError)
+				}
+
+				a := &dns.A{
+					Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
+					A:   rdata.A{Addr: ip},
+				}
+				resp.Answer = append(resp.Answer, a)
+			}
 		}
 
-		if !hostAlive(ipStr) { // пропускаем мёртвые серверы
-			continue
+	} else { // если в конфигурации отключена проверка просто возвращаем значения
+		for _, ipStr := range ips {
+			ip, err := netip.ParseAddr(ipStr)
+			if err != nil {
+				log.Printf("Failed to parse IP %s: %v", ipStr, err)
+				continue
+			}
+
+			a := &dns.A{
+				Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
+				A:   rdata.A{Addr: ip},
+			}
+			resp.Answer = append(resp.Answer, a)
 		}
-		a := &dns.A{
-			Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
-			A:   rdata.A{Addr: ip},
-		}
-		resp.Answer = append(resp.Answer, a)
 	}
 }
 
