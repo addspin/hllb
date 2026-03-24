@@ -90,9 +90,7 @@ func handleWildcardMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, query
 				switch qType {
 				case dns.TypeA:
 					addResponseARecords(w, resp, queryDomain, wildcardData.A)
-					log.Println("TEST")
 				case dns.TypeNS:
-					log.Println("TEST1-3")
 					if rootData, ok := utils.Zone["test.ru"]; ok {
 						addResponseNSRecords(resp, rootData.NS)
 					}
@@ -108,7 +106,6 @@ func handleWildcardMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, query
 
 // Проверяем точное совпадение
 func handleExactMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNorm string, parts []string, qType uint16) bool {
-	log.Println("TEST 1-1")
 	data, ok := utils.Zone[queryNorm]
 	if !ok {
 		return false
@@ -145,7 +142,6 @@ func handleWildcardFallback(w dns.ResponseWriter, resp *dns.Msg, queryDomain, ro
 		sendErrorResponse(w, resp, dns.RcodeNameError)
 		return true
 	}
-	log.Println("TEST 1-2")
 	switch qType {
 	case dns.TypeA:
 		addResponseARecords(w, resp, queryDomain, rootData.A)
