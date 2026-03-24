@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	// s := utils.InitZone()
+	utils.InitZone()
 	// log.Println("НАЧАЛО", s)
 	cfg, err := utils.ReadConfig("config.yaml")
 	if err != nil {
