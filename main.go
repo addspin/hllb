@@ -5,7 +5,6 @@ import (
 	"hllb/handles"
 	"hllb/utils"
 	"log"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 
@@ -13,10 +12,11 @@ import (
 )
 
 func main() {
-	go func() {
-		log.Println("pprof: http://localhost:6060/debug/pprof/")
-		log.Println(http.ListenAndServe(":6060", nil))
-	}()
+	// Включить для профилирования
+	// go func() {
+	// 	log.Println("pprof: http://localhost:6060/debug/pprof/")
+	// 	log.Println(http.ListenAndServe(":6060", nil))
+	// }()
 
 	utils.EnsureRequiredFiles()
 	utils.InitZone()

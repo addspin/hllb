@@ -187,8 +187,8 @@ portCheck: 22          # TCP-порт для проверки
 ```
 --- 
 
-### TEST Report - resperf
-```
+### TEST Report - dnsperf | resperf
+``` 
 Машина с которой послылася запрос по wi-fi:
 Mac-mini M2 16Gb
 
@@ -220,3 +220,24 @@ Statistics:
 
   Connection attempts:  0 (0 successful, 0.00%)
 ```
+```
+dnsperf -s 10.13.1.18 -m udp -p 1053 -d test.info -c 10 -l 30
+[Status] Sending queries (to 10.13.1.18:1053)
+[Status] Started at: Wed Mar 25 15:17:36 2026
+[Status] Stopping after 30.000000 seconds
+[Status] Testing complete (time limit)
+
+Statistics:
+
+  Queries sent:         202632
+  Queries completed:    202632 (100.00%)
+  Queries lost:         0 (0.00%)
+
+  Response codes:       NOERROR 202632 (100.00%)
+  Average packet size:  request 28, response 44
+  Run time (s):         30.009109
+  Queries per second:   6752.349762
+
+  Average Latency (s):  0.014134 (min 0.003133, max 0.145069)
+  Latency StdDev (s):   0.015489
+  ```
