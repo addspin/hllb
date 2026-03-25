@@ -1,5 +1,5 @@
 app:
-  port: 1053
+  port: 53
   checkZoneInterval: 5
   checkZoneIntervalType: seconds
   activeCheck: true
@@ -8,3 +8,6 @@ app:
   repeatCheckIntervalType: seconds
   repeatCheckFileInterval: 3
   repeatCheckFileIntervalType: seconds
+  forward: true
+  forwardDNS: 8.8.8.8
+  forwardDNSPort: 53

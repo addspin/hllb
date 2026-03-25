@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -11,7 +12,16 @@ type CheckConfig struct {
 	PortCheck int      `yaml:"portCheck"`
 }
 
-var CheckFile CheckConfig
+var (
+	checkFile      CheckConfig
+	checkFileMutex sync.RWMutex
+)
+
+func GetCheckFile() CheckConfig {
+	checkFileMutex.RLock()
+	defer checkFileMutex.RUnlock()
+	return checkFile
+}
 
 func ReadCheckConfig(path string) error {
 	data, err := os.ReadFile(path)
@@ -19,8 +29,13 @@ func ReadCheckConfig(path string) error {
 		return err
 	}
 
-	if err := yaml.Unmarshal(data, &CheckFile); err != nil {
+	var cfg CheckConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return err
 	}
+
+	checkFileMutex.Lock()
+	checkFile = cfg
+	checkFileMutex.Unlock()
 	return nil
 }

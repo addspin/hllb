@@ -13,13 +13,32 @@ type StatusCodeTcp struct {
 	MutexTcp sync.Mutex
 }
 
-var ValidPoolHost []string
+var (
+	validPoolHost []string
+	validPoolSet  map[string]struct{}
+	poolMutex     sync.RWMutex
+)
+
+// GetValidPoolHost возвращает копию слайса живых хостов (для Algorithm balance).
+func GetValidPoolHost() []string {
+	poolMutex.RLock()
+	defer poolMutex.RUnlock()
+	cp := make([]string, len(validPoolHost))
+	copy(cp, validPoolHost)
+	return cp
+}
+
+// IsInPool проверяет наличие IP в пуле
+func IsInPool(ip string) bool {
+	poolMutex.RLock()
+	defer poolMutex.RUnlock()
+	_, ok := validPoolSet[ip]
+	return ok
+}
 
 func (s *StatusCodeTcp) TCPCheck(timeTicker time.Duration) {
-	// Выполняем проверку сразу при запуске
 	s.checkPort()
 
-	// Затем запускаем периодическую проверку
 	ticker := time.NewTicker(timeTicker)
 	defer ticker.Stop()
 
@@ -32,12 +51,13 @@ func (s *StatusCodeTcp) checkPort() {
 	s.MutexTcp.Lock()
 	defer s.MutexTcp.Unlock()
 
-	c := utils.CheckFile
+	c := utils.GetCheckFile()
 	if len(c.HostCheck) == 0 {
 		log.Println("checkItems: No server for check list")
 	}
 	port := c.PortCheck
 	newPool := make([]string, 0, len(c.HostCheck))
+	newSet := make(map[string]struct{}, len(c.HostCheck))
 
 	for _, server := range c.HostCheck {
 		log.Println("checkItems:", server)
@@ -46,6 +66,7 @@ func (s *StatusCodeTcp) checkPort() {
 			log.Println("Connection failed")
 		} else {
 			newPool = append(newPool, server)
+			newSet[server] = struct{}{}
 			log.Println("Connection established")
 			connErr := conn.Close()
 			if connErr != nil {
@@ -53,7 +74,9 @@ func (s *StatusCodeTcp) checkPort() {
 			}
 		}
 	}
-	ValidPoolHost = newPool
-	log.Printf("ValidPoolHost %s", ValidPoolHost)
-	
+	poolMutex.Lock()
+	validPoolHost = newPool // для Algorithm
+	validPoolSet = newSet   // для сравнения данных чекера в IsInPool с ip
+	poolMutex.Unlock()
+	log.Printf("ValidPoolHost %s", newPool)
 }

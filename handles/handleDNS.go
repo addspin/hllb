@@ -3,6 +3,7 @@ package handles
 import (
 	"context"
 	"hllb/algorithm"
+	"hllb/checks"
 	"hllb/utils"
 	"io"
 	"log"
@@ -19,6 +20,7 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 	if len(req.Question) == 0 {
 		return
 	}
+	cfg := utils.GetConfig()
 
 	q := req.Question[0]
 	queryDomainName := q.Header().Name
@@ -36,20 +38,25 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 	}
 
 	rootDomain := strings.Join(parts[1:], ".")
-	// log.Println("rootDomain", rootDomain)
 
 	// Проверяем wildcard записи в зоне (например *.info) и отдаем значения по типу msg.info.test.ru
-	if found := handleWildcardMatch(w, resp, queryDomainName, queryNorm, rootDomain, queryType); found {
+	if found := handleWildcardMatch(w, resp, queryDomainName, queryNorm, rootDomain, queryType, cfg); found {
 		return
 	}
 
 	// Проверяем точное совпадение
-	if found := handleExactMatch(w, resp, queryDomainName, queryNorm, parts, queryType); found {
+	if found := handleExactMatch(w, resp, queryDomainName, queryNorm, parts, queryType, cfg, rootDomain); found {
 		return
 	}
 
 	// Проверяем wildcard запись *.test.ru
-	if found := handleWildcardFallback(w, resp, queryDomainName, rootDomain, queryType); found {
+	if found := handleWildcardFallback(w, resp, queryDomainName, rootDomain, queryType, cfg); found {
+		return
+	}
+
+	// Если запись не найдена в зонах и включён forward — пересылаем на внешний DNS
+	if cfg.App.Forward {
+		forwardHandlerDNS(ctx, w, req)
 		return
 	}
 
@@ -61,7 +68,6 @@ func newResponse(req *dns.Msg) *dns.Msg {
 	resp.ID = req.ID
 	resp.Response = true
 	resp.Question = req.Question
-	resp.Authoritative = true
 	return resp
 }
 
@@ -70,8 +76,9 @@ func normalizeDomain(domain string) string {
 }
 
 // Проверяем wildcard записи в зоне (например *.info)
-func handleWildcardMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNorm, rootDomain string, qType uint16) bool {
-	for zoneKey := range utils.Zone {
+func handleWildcardMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNorm, rootDomain string, qType uint16, cfg *utils.Config) bool {
+	snapshot := utils.GetZoneSnapshot()
+	for zoneKey := range snapshot {
 		log.Println("zoneKey", zoneKey)
 		if !strings.HasPrefix(zoneKey, "*.") {
 			continue
@@ -85,13 +92,13 @@ func handleWildcardMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, query
 		if len(wildRecord) != 0 {
 			if strings.Contains(queryNorm, wildRecord) { // проверяем если вхождение info.test.ru в запросе пользователя например dd.asdf.info.test.ru
 				wildcardKey := "*." + wildRecord // если есть получаем *.info.test.ru и извлекаем ip из А записи в зоне
-				wildcardData := utils.Zone[wildcardKey]
+				wildcardData := snapshot[wildcardKey]
 
 				switch qType {
 				case dns.TypeA:
-					addResponseARecords(w, resp, queryDomain, wildcardData.A)
+					addResponseARecords(w, resp, queryDomain, wildcardData.A, cfg)
 				case dns.TypeNS:
-					if rootData, ok := utils.Zone["test.ru"]; ok {
+					if rootData, ok := snapshot[rootDomain]; ok {
 						addResponseNSRecords(resp, rootData.NS)
 					}
 				}
@@ -105,17 +112,17 @@ func handleWildcardMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, query
 }
 
 // Проверяем точное совпадение
-func handleExactMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNorm string, parts []string, qType uint16) bool {
-	data, ok := utils.Zone[queryNorm]
+func handleExactMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNorm string, parts []string, qType uint16, cfg *utils.Config, rootDomain string) bool {
+	data, ok := utils.GetZone(queryNorm)
 	if !ok {
 		return false
 	}
 
 	switch qType {
 	case dns.TypeA:
-		addResponseARecords(w, resp, queryDomain, data.A)
+		addResponseARecords(w, resp, queryDomain, data.A, cfg)
 	case dns.TypeNS:
-		if rootData, ok := utils.Zone["test.ru"]; ok {
+		if rootData, ok := utils.GetZone(rootDomain); ok {
 			addResponseNSRecords(resp, rootData.NS)
 		}
 	}
@@ -124,29 +131,26 @@ func handleExactMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNor
 	return true
 }
 
-// Проверяем wildcard запись *.test.ru
-func handleWildcardFallback(w dns.ResponseWriter, resp *dns.Msg, queryDomain, rootDomain string, qType uint16) bool {
+// Проверяем wildcard запись *.rootDomain
+func handleWildcardFallback(w dns.ResponseWriter, resp *dns.Msg, queryDomain, rootDomain string, qType uint16, cfg *utils.Config) bool {
 	parts := strings.Split(queryDomain, ".")
 	if len(parts) <= 2 {
 		return false
 	}
 
-	// Проверяем наличие wildcard записи *.test.ru
-	if _, ok := utils.Zone["*.test.ru"]; !ok {
-		sendErrorResponse(w, resp, dns.RcodeNameError)
-		return true
+	if _, ok := utils.GetZone("*." + rootDomain); !ok {
+		return false
 	}
 
-	rootData, ok := utils.Zone[rootDomain]
+	rootData, ok := utils.GetZone(rootDomain)
 	if !ok {
-		sendErrorResponse(w, resp, dns.RcodeNameError)
-		return true
+		return false
 	}
 	switch qType {
 	case dns.TypeA:
-		addResponseARecords(w, resp, queryDomain, rootData.A)
+		addResponseARecords(w, resp, queryDomain, rootData.A, cfg)
 	case dns.TypeNS:
-		if rootNS, ok := utils.Zone["test.ru"]; ok {
+		if rootNS, ok := utils.GetZone(rootDomain); ok {
 			addResponseNSRecords(resp, rootNS.NS)
 		}
 	}
@@ -155,73 +159,49 @@ func handleWildcardFallback(w dns.ResponseWriter, resp *dns.Msg, queryDomain, ro
 	return true
 }
 
-//func hostAlive(w dns.ResponseWriter, resp *dns.Msg, ip string) bool {
-//	if len(checks.ValidPoolHost) == 0 {
-//		sendErrorResponse(w, resp, dns.RcodeNameError)
-//	}
-//	for _, liveIP := range checks.ValidPoolHost {
-//		if ip == liveIP {
-//			return true
-//		}
-//	}
-//	return false
-//}
-
-// Добавляем отвтеты  с A записью
-func addResponseARecords(w dns.ResponseWriter, resp *dns.Msg, responseDomain string, ips []string) {
-	responseDomain = addTrailingDot(responseDomain)
-	cfg, err := utils.ReadConfig("config.yaml")
-	if err != nil {
-		log.Fatal(err)
+// isInCheckPool проверяет, есть ли хотя бы один IP записи в пуле check.yaml
+func isInCheckPool(ips []string) bool {
+	for _, ip := range ips {
+		if checks.IsInPool(ip) {
+			return true
+		}
 	}
-	checkCfg := cfg.App.ActiveCheck
+	return false
+}
 
-	if checkCfg {
-		// выбираем алгоритм
-		switch cfg.App.AlgorithmCheck {
-		case "RR":
-			{
-				ip, err := algorithm.RR()
-				if err != nil {
-					sendErrorResponse(w, resp, dns.RcodeNameError)
-				}
+// Добавляем ответы с A записью
+func addResponseARecords(w dns.ResponseWriter, resp *dns.Msg, responseDomain string, ips []string, cfg *utils.Config) {
+	responseDomain = addTrailingDot(responseDomain)
 
-				a := &dns.A{
-					Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
-					A:   rdata.A{Addr: ip},
-				}
-				resp.Answer = append(resp.Answer, a)
-			}
-
-		default:
-			{
-				ip, err := algorithm.RR()
-				if err != nil {
-					sendErrorResponse(w, resp, dns.RcodeNameError)
-				}
-
-				a := &dns.A{
-					Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
-					A:   rdata.A{Addr: ip},
-				}
-				resp.Answer = append(resp.Answer, a)
-			}
+	// RR только для записей, чьи IP находятся в пуле check.yaml
+	if cfg.App.ActiveCheck && isInCheckPool(ips) {
+		ip, err := algorithm.RR()
+		if err != nil {
+			sendErrorResponse(w, resp, dns.RcodeNameError)
+			return
 		}
 
-	} else { // если в конфигурации отключена проверка просто возвращаем значения
-		for _, ipStr := range ips {
-			ip, err := netip.ParseAddr(ipStr)
-			if err != nil {
-				log.Printf("Failed to parse IP %s: %v", ipStr, err)
-				continue
-			}
-
-			a := &dns.A{
-				Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
-				A:   rdata.A{Addr: ip},
-			}
-			resp.Answer = append(resp.Answer, a)
+		a := &dns.A{
+			Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
+			A:   rdata.A{Addr: ip},
 		}
+		resp.Answer = append(resp.Answer, a)
+		return
+	}
+
+	// Для остальных записей — просто возвращаем IP из зоны
+	for _, ipStr := range ips {
+		ip, err := netip.ParseAddr(ipStr)
+		if err != nil {
+			log.Printf("Failed to parse IP %s: %v", ipStr, err)
+			continue
+		}
+
+		a := &dns.A{
+			Hdr: dns.Header{Name: responseDomain, Class: dns.ClassINET, TTL: defaultTTL},
+			A:   rdata.A{Addr: ip},
+		}
+		resp.Answer = append(resp.Answer, a)
 	}
 }
 
@@ -243,6 +223,7 @@ func addTrailingDot(domain string) string {
 }
 
 func sendResponse(w dns.ResponseWriter, resp *dns.Msg, rcode uint16) {
+	resp.Authoritative = true
 	resp.Rcode = rcode
 	if err := resp.Pack(); err != nil {
 		log.Printf("Pack error: %v", err)

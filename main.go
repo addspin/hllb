@@ -11,9 +11,10 @@ import (
 )
 
 func main() {
+	utils.EnsureRequiredFiles()
 	utils.InitZone()
-	// log.Println("НАЧАЛО", s)
-	cfg, err := utils.ReadConfig("config.yaml")
+
+	cfg, err := utils.InitConfig("config.yaml")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,6 +25,9 @@ func main() {
 	repeatCheckTimeType := cfg.App.RepeatCheckIntervalType
 	repeatCheckFileTime := cfg.App.RepeatCheckFileInterval
 	repeatCheckFileTimeType := cfg.App.RepeatCheckFileIntervalType
+	forwardDNS := cfg.App.ForwardDNS
+	forwardDNSPort := cfg.App.ForwardDNSPort
+	handles.InitForward(forwardDNS, forwardDNSPort)
 
 	allFileZone, err := os.ReadDir("./zone")
 	if err != nil {
@@ -31,22 +35,20 @@ func main() {
 	}
 	if cfg.App.ActiveCheck {
 		ready := make(chan struct{})
-		// Получаем конфигурацию check файла
 		go utils.WatchCheckFile("./check.yaml", utils.SelectTime(repeatCheckFileTimeType, repeatCheckFileTime), ready)
-		<-ready // если конфиг получен
-		// Проверяем досупность серверов
+		<-ready
 		serverInterval := utils.SelectTime(repeatCheckTimeType, repeatCheckTime)
 		checkTCP := checks.StatusCodeTcp{}
 		go checkTCP.TCPCheck(serverInterval)
 	}
 
-	// Получаем список файлов зон
 	for _, file := range allFileZone {
-		if file.IsDir() { // Пропускаем поддиректории
+		if file.IsDir() {
 			continue
 		}
 		go utils.WatchZoneFile("./zone/"+file.Name(), utils.SelectTime(checkZoneIntervalType, checkZoneInterval))
 	}
+
 	dns.HandleFunc(".", handles.HandleDNS)
 	go func() {
 		if err := dns.ListenAndServe(port, "udp", nil); err != nil {
@@ -56,5 +58,4 @@ func main() {
 	if err := dns.ListenAndServe(port, "tcp", nil); err != nil {
 		log.Fatalf("DNS TCP: %v", err)
 	}
-
 }
