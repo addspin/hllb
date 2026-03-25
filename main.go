@@ -5,12 +5,19 @@ import (
 	"hllb/handles"
 	"hllb/utils"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 
 	"codeberg.org/miekg/dns"
 )
 
 func main() {
+	go func() {
+		log.Println("pprof: http://localhost:6060/debug/pprof/")
+		log.Println(http.ListenAndServe(":6060", nil))
+	}()
+
 	utils.EnsureRequiredFiles()
 	utils.InitZone()
 
