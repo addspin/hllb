@@ -46,7 +46,7 @@ jobs:
           )
           for t in "${targets[@]}"; do
             read -r GOOS GOARCH CCNAME <<<"$t"
-            BIN="tlss-${GOOS}-${GOARCH}"
+            BIN="hllb-${GOOS}-${GOARCH}"
             echo "==> Building ${BIN} with CC=${CCNAME}"
             CC="$CCNAME" GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=1 \
               go build -trimpath -ldflags="-s -w" -o "dist/${BIN}" .
@@ -86,7 +86,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p dist
-          BIN="tlss-darwin-arm64"
+          BIN="hllb-darwin-arm64"
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 \
             go build -trimpath -ldflags="-s -w" -o "dist/${BIN}" .
           (cd dist && tar -czf "${BIN}.tar.gz" "${BIN}" && rm -f "${BIN}")
