@@ -155,66 +155,54 @@ hostCheck:
 portCheck: 22          # TCP-порт для проверки
 ```
 
---- 
+---
 
-### TEST Report - dnsperf | resperf
-``` 
-Машина с которой послылася запрос по wi-fi:
-Mac-mini M2 16Gb
+## Benchmark
 
-Машина на которую посылался:
-Mac book Air M4 16Gb
+### Стенд
 
-Оптимизации системы (сетевого стека) не выполнялись.
+| | Машина | Роль |
+|---|--------|------|
+| Клиент | Mac mini M2, 16 GB | Генератор нагрузки (dnsperf / resperf) |
+| Сервер | MacBook Air M4, 16 GB | hllb на порту 1053 |
+| Сеть | Wi-Fi | Без оптимизации сетевого стека |
+
+### resperf (поиск точки насыщения)
+
 ```
+resperf -P 20260325-1333.gnuplot -s 10.13.1.18 -p 1053 -d test.info -R -C 10
 ```
-Resperf report 20260325-1333
-Resperf output
-DNS Resolution Performance Testing Tool
-Version 2.15.0
 
-[Status] Command line: resperf -P 20260325-1333.gnuplot -s 10.13.1.18 -p 1053 -d test.info -R -C 10
-[Status] Sending
-[Status] Reached 65536 outstanding queries
-[Status] Waiting for more responses
-[Status] Testing complete
+| Метрика | Значение |
+|---------|----------|
+| Запросов отправлено | 673 250 |
+| Запросов завершено | 608 827 (90.4%) |
+| Потеряно | 64 423 (9.6%) |
+| **Пиковый throughput** | **35 790 qps** |
+| Потери на пике | 16.61% |
 
-Statistics:
+### dnsperf (стабильная нагрузка)
 
-  Queries sent:         673250
-  Queries completed:    608827
-  Queries lost:         64423
-  Response codes:       NOERROR 608827 (100.00%)
-
-  Run time (s):         73.415265
-  Maximum throughput:   35790.000000 qps
-  Lost at that point:   16.61%
-
-  Connection attempts:  0 (0 successful, 0.00%)
-```
 ```
 dnsperf -s 10.13.1.18 -m udp -p 1053 -d test.info -c 10 -l 30
-[Status] Sending queries (to 10.13.1.18:1053)
-[Status] Started at: Wed Mar 25 15:17:36 2026
-[Status] Stopping after 30.000000 seconds
-[Status] Testing complete (time limit)
+```
 
-Statistics:
+| Метрика | Значение |
+|---------|----------|
+| Запросов отправлено | 202 632 |
+| Запросов завершено | 202 632 (100%) |
+| Потеряно | 0 (0%) |
+| **QPS** | **6 752** |
+| Средняя латенция | 14.1 ms |
+| Мин / Макс латенция | 3.1 ms / 145 ms |
 
-  Queries sent:         202632
-  Queries completed:    202632 (100.00%)
-  Queries lost:         0 (0.00%)
+### Выводы
 
-  Response codes:       NOERROR 202632 (100.00%)
-  Average packet size:  request 28, response 44
-  Run time (s):         30.009109
-  Queries per second:   6752.349762
+- При стабильной нагрузке (10 клиентов) — **0% потерь**, ~6 750 qps
+- Пиковый throughput по resperf — **~35 800 qps** (с потерями 16%)
+- Предположительно Узкое место — UDP syscall ядра macOS (если опираться на pprof)
 
-  Average Latency (s):  0.014134 (min 0.003133, max 0.145069)
-  Latency StdDev (s):   0.015489
-  ```
-
-  ---
+---
 
 ## Структура проекта
 
