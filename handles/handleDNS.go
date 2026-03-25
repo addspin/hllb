@@ -39,17 +39,17 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 
 	rootDomain := strings.Join(parts[1:], ".")
 
-	// Проверяем wildcard записи в зоне (например *.info) и отдаем значения по типу msg.info.test.ru
-	if found := handleWildcardMatch(w, resp, queryDomainName, queryNorm, rootDomain, queryType, cfg); found {
-		return
-	}
-
 	// Проверяем точное совпадение
 	if found := handleExactMatch(w, resp, queryDomainName, queryNorm, parts, queryType, cfg, rootDomain); found {
 		return
 	}
 
-	// Проверяем wildcard запись *.test.ru
+	// Проверяем wildcard записи в зоне (например *.info)
+	if found := handleWildcardMatch(w, resp, queryDomainName, queryNorm, rootDomain, queryType, cfg); found {
+		return
+	}
+
+	// Проверяем wildcard запись *.rootDomain
 	if found := handleWildcardFallback(w, resp, queryDomainName, rootDomain, queryType, cfg); found {
 		return
 	}

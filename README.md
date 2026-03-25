@@ -185,3 +185,38 @@ portCheck: 22          # TCP-порт для проверки
     ├── readCheck.go           # Чтение check.yaml
     └── selectTime.go          # Конвертация единиц времени
 ```
+--- 
+
+### TEST Report - resperf
+```
+Машина с которой послылася запрос по wi-fi:
+Mac-mini M2 16Gb
+
+Машина на которую посылался:
+Mac book Air M4 16Gb
+```
+```
+Resperf report 20260325-1333
+Resperf output
+DNS Resolution Performance Testing Tool
+Version 2.15.0
+
+[Status] Command line: resperf -P 20260325-1333.gnuplot -s 10.13.1.18 -p 1053 -d test.info -R -C 10
+[Status] Sending
+[Status] Reached 65536 outstanding queries
+[Status] Waiting for more responses
+[Status] Testing complete
+
+Statistics:
+
+  Queries sent:         673250
+  Queries completed:    608827
+  Queries lost:         64423
+  Response codes:       NOERROR 608827 (100.00%)
+
+  Run time (s):         73.415265
+  Maximum throughput:   35790.000000 qps
+  Lost at that point:   16.61%
+
+  Connection attempts:  0 (0 successful, 0.00%)
+```
