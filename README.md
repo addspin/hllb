@@ -1,8 +1,6 @@
 # hllb — DNS-сервер с балансировкой нагрузки
 
-Авторитетный DNS-сервер на Go с поддержкой wildcard-зон, активной проверкой доступности хостов и форвардингом.
 
----
 
 ## Быстрый старт
 
@@ -101,8 +99,8 @@ dig @127.0.0.1 -p 53 example.com A
 | `exact.domain` | `sub.admin.test.ru` | Точное совпадение записи |
 
 Порядок приоритета обработки запроса:
-1. Wildcard-записи зоны (`*.suffix`)
-2. Точное совпадение
+1. Точное совпадение
+2. Wildcard-записи зоны (`*.suffix`)
 3. Wildcard-фолбэк (`*.zone`)
 4. Форвардинг на внешний DNS (если `forward: true`)
 5. `NXDOMAIN`
@@ -157,34 +155,6 @@ hostCheck:
 portCheck: 22          # TCP-порт для проверки
 ```
 
----
-
-## Структура проекта
-
-```
-.
-├── main.go                    # Точка входа, запуск DNS-сервера
-├── config.yaml                # Основная конфигурация
-├── check.yaml                 # Список хостов для health check
-├── zone/                      # DNS zone-файлы (стандартный формат RFC 1035)
-│   └── test.ru
-├── algorithm/
-│   └── rr.go                  # Round Robin балансировка
-├── checks/
-│   └── tcpCheck.go            # TCP health check
-├── handles/
-│   ├── handleDNS.go           # Обработчик DNS-запросов
-│   └── forwardDNS.go          # Форвардинг на upstream DNS
-└── utils/
-    ├── initFiles.go           # Создание файлов/папок при первом запуске
-    ├── zoneParser.go          # Парсинг zone-файлов
-    ├── watchZoneFile.go       # Слежение за изменениями zone-файлов
-    ├── watchCheckFile.go      # Слежение за изменениями check.yaml
-    ├── hashFile.go            # SHA-256 хеширование файлов
-    ├── readConfig.go          # Чтение и кэширование config.yaml
-    ├── readCheck.go           # Чтение check.yaml
-    └── selectTime.go          # Конвертация единиц времени
-```
 --- 
 
 ### TEST Report - dnsperf | resperf
@@ -194,6 +164,8 @@ Mac-mini M2 16Gb
 
 Машина на которую посылался:
 Mac book Air M4 16Gb
+
+Оптимизации системы (сетевого стека) не выполнялись.
 ```
 ```
 Resperf report 20260325-1333
@@ -241,3 +213,32 @@ Statistics:
   Average Latency (s):  0.014134 (min 0.003133, max 0.145069)
   Latency StdDev (s):   0.015489
   ```
+
+  ---
+
+## Структура проекта
+
+```
+.
+├── main.go                    # Точка входа, запуск DNS-сервера
+├── config.yaml                # Основная конфигурация
+├── check.yaml                 # Список хостов для health check
+├── zone/                      # DNS zone-файлы (стандартный формат RFC 1035)
+│   └── test.ru
+├── algorithm/
+│   └── rr.go                  # Round Robin балансировка
+├── checks/
+│   └── tcpCheck.go            # TCP health check
+├── handles/
+│   ├── handleDNS.go           # Обработчик DNS-запросов
+│   └── forwardDNS.go          # Форвардинг на upstream DNS
+└── utils/
+    ├── initFiles.go           # Создание файлов/папок при первом запуске
+    ├── zoneParser.go          # Парсинг zone-файлов
+    ├── watchZoneFile.go       # Слежение за изменениями zone-файлов
+    ├── watchCheckFile.go      # Слежение за изменениями check.yaml
+    ├── hashFile.go            # SHA-256 хеширование файлов
+    ├── readConfig.go          # Чтение и кэширование config.yaml
+    ├── readCheck.go           # Чтение check.yaml
+    └── selectTime.go          # Конвертация единиц времени
+```
