@@ -26,7 +26,7 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 	queryDomainName := q.Header().Name
 	queryType := dns.RRToType(q)
 
-	log.Printf("DNS query: %s, type: %s", queryDomainName, dns.TypeToString[queryType])
+	// log.Printf("DNS query: %s, type: %s", queryDomainName, dns.TypeToString[queryType])
 
 	resp := newResponse(req)
 	queryNorm := normalizeDomain(queryDomainName)
@@ -79,7 +79,7 @@ func normalizeDomain(domain string) string {
 func handleWildcardMatch(w dns.ResponseWriter, resp *dns.Msg, queryDomain, queryNorm, rootDomain string, qType uint16, cfg *utils.Config) bool {
 	snapshot := utils.GetZoneSnapshot()
 	for zoneKey := range snapshot {
-		log.Println("zoneKey", zoneKey)
+		// log.Println("zoneKey", zoneKey)
 		if !strings.HasPrefix(zoneKey, "*.") {
 			continue
 		}
