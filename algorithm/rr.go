@@ -2,7 +2,7 @@ package algorithm
 
 import (
 	"hllb/checks"
-	"log"
+	"hllb/utils"
 	"net/netip"
 	"sync/atomic"
 )
@@ -21,7 +21,7 @@ func RR() (netip.Addr, error) {
 	index := int(idx) % len(pool)
 	valid, err := netip.ParseAddr(pool[index])
 	if err != nil {
-		log.Printf("Failed to parse IP %s: %v", pool[index], err)
+		utils.LogError("Failed to parse IP %s: %v", pool[index], err)
 	}
 	return valid, nil
 }

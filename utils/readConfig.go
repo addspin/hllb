@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"log"
 	"os"
 	"sync"
 
@@ -22,6 +21,10 @@ type Config struct {
 		Forward                     bool   `yaml:"forward"`
 		ForwardDNS                  string `yaml:"forwardDNS"`
 		ForwardDNSPort              string `yaml:"forwardDNSPort"`
+		ActiveLog                   bool   `yaml:"activeLog"`
+		PathLog                     string `yaml:"pathLog"`
+		LvlLog                      string `yaml:"lvlLog"`
+		MetricsPort                 string `yaml:"metricsPort"`
 	} `yaml:"app"`
 }
 
@@ -58,7 +61,7 @@ func ReloadConfig(path string) error {
 	configMutex.Lock()
 	cachedConfig = cfg
 	configMutex.Unlock()
-	log.Printf("Config reloaded from %s", path)
+	LogInfo("Config reloaded from %s", path)
 	return nil
 }
 

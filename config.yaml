@@ -1,5 +1,5 @@
 app:
-  port: 53
+  port: 1053
   checkZoneInterval: 5
   checkZoneIntervalType: seconds
   activeCheck: true
@@ -8,6 +8,10 @@ app:
   repeatCheckIntervalType: seconds
   repeatCheckFileInterval: 3
   repeatCheckFileIntervalType: seconds
-  forward: true
+  forward: false
   forwardDNS: 8.8.8.8
   forwardDNSPort: 53
+  activeLog: true
+  pathLog: ./hllb.log
+  lvlLog: info
+  metricsPort: 9153

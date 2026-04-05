@@ -3,6 +3,7 @@ package main
 import (
 	"hllb/checks"
 	"hllb/handles"
+	"hllb/metrics"
 	"hllb/utils"
 	"log"
 	_ "net/http/pprof"
@@ -12,6 +13,7 @@ import (
 )
 
 func main() {
+
 	// Включить для профилирования
 	// go func() {
 	// 	log.Println("pprof: http://localhost:6060/debug/pprof/")
@@ -25,7 +27,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	port := ":" + cfg.App.Port
+	pathLogs := cfg.App.PathLog
+	lvlLog := cfg.App.LvlLog
+	active := cfg.App.ActiveLog
+	utils.InitLogs(pathLogs, lvlLog, active)
+
+	metrics.Init()
+	if cfg.App.MetricsPort != "" {
+		go metrics.ServeHTTP(":" + cfg.App.MetricsPort)
+		utils.LogInfo("Metrics started on :%s/metrics", cfg.App.MetricsPort)
+	}
+
+	port := cfg.App.Port
+
 	checkZoneInterval := cfg.App.CheckZoneInterval
 	checkZoneIntervalType := cfg.App.CheckZoneIntervalType
 	repeatCheckTime := cfg.App.RepeatCheckInterval
@@ -58,11 +72,15 @@ func main() {
 
 	dns.HandleFunc(".", handles.HandleDNS)
 	go func() {
-		if err := dns.ListenAndServe(port, "udp", nil); err != nil {
+		if err := dns.ListenAndServe(":"+port, "udp", nil); err != nil {
+			utils.LogError("DNS UDP: %v", err)
 			log.Fatalf("DNS UDP: %v", err)
 		}
 	}()
-	if err := dns.ListenAndServe(port, "tcp", nil); err != nil {
+	utils.LogInfo("HLLB started UDP:%s", port)
+	utils.LogInfo("HLLB started TCP:%s", port)
+	if err := dns.ListenAndServe(":"+port, "tcp", nil); err != nil {
+		utils.LogError("DNS TCP: %v", err)
 		log.Fatalf("DNS TCP: %v", err)
 	}
 }

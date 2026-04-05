@@ -6,7 +6,6 @@ import (
 )
 
 func WatchCheckFile(path string, interval time.Duration, ready chan<- struct{}) {
-	// Запоминаем начальный хеш
 	lastHash, _ := GetFileHash(path)
 	err := ReadCheckConfig(path)
 	if err != nil {
@@ -22,11 +21,11 @@ func WatchCheckFile(path string, interval time.Duration, ready chan<- struct{}) 
 		}
 
 		if currentHash != lastHash {
-			log.Printf("Hesh change [%s], update check file %s", currentHash[:8], path)
+			LogInfo("Hash change [%s], update check file %s", currentHash[:8], path)
 
 			err := ReadCheckConfig(path)
 			if err != nil {
-				log.Fatalf("Error read check file  %s", err)
+				LogError("Error read check file %s", err)
 			}
 
 			lastHash = currentHash

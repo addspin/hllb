@@ -2,7 +2,8 @@ package handles
 
 import (
 	"context"
-	"log"
+	"hllb/metrics"
+	"hllb/utils"
 
 	"codeberg.org/miekg/dns"
 )
@@ -19,12 +20,14 @@ func forwardHandlerDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) 
 		return
 	}
 
-	// Если стоит флаг forward, то перенаправляем запросы на внешний dns сервер
+	// Если forward = true, то перенаправляем запросы на внешний dns сервер
 	c := new(dns.Client)
 
+	metrics.ForwardTotal.Inc()
 	resp, _, err := c.Exchange(ctx, req, "udp", forwardAddr)
 	if err != nil {
-		log.Printf("Forward error: %v", err)
+		metrics.ForwardErrorsTotal.Inc()
+		utils.LogError("Forward error: %v", err)
 		errResp := newResponse(req)
 		sendErrorResponse(w, errResp, dns.RcodeServerFailure)
 		return

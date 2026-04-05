@@ -18,6 +18,9 @@ const defaultConfig = `app:
   forward: true
   forwardDNS: 8.8.8.8
   forwardDNSPort: 53
+  activeLog: false
+  pathLog: ./hllb.log
+  lvlLog: info
 `
 
 const defaultCheck = `# hostCheck - ip for health check, must match A records in zone (e.g. lb.example.com)

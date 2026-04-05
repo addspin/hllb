@@ -4,11 +4,12 @@ import (
 	"context"
 	"hllb/algorithm"
 	"hllb/checks"
+	"hllb/metrics"
 	"hllb/utils"
 	"io"
-	"log"
 	"net/netip"
 	"strings"
+	"time"
 
 	"codeberg.org/miekg/dns"
 	"codeberg.org/miekg/dns/rdata"
@@ -17,6 +18,7 @@ import (
 const defaultTTL = 3600
 
 func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
+	start := time.Now()
 	if len(req.Question) == 0 {
 		return
 	}
@@ -25,8 +27,14 @@ func HandleDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
 	q := req.Question[0]
 	queryDomainName := q.Header().Name
 	queryType := dns.RRToType(q)
+	queryTypeStr := dns.TypeToString[queryType]
 
-	// log.Printf("DNS query: %s, type: %s", queryDomainName, dns.TypeToString[queryType])
+	metrics.QueriesTotal.WithLabelValues(queryTypeStr).Inc()
+	defer func() {
+		metrics.QueryDuration.Observe(time.Since(start).Seconds())
+	}()
+
+	utils.LogInfo("DNS query: %s type: %s from: %s", queryDomainName, queryTypeStr, w.RemoteAddr())
 
 	resp := newResponse(req)
 	queryNorm := normalizeDomain(queryDomainName)
@@ -193,7 +201,7 @@ func addResponseARecords(w dns.ResponseWriter, resp *dns.Msg, responseDomain str
 	for _, ipStr := range ips {
 		ip, err := netip.ParseAddr(ipStr)
 		if err != nil {
-			log.Printf("Failed to parse IP %s: %v", ipStr, err)
+			utils.LogError("Failed to parse IP %s: %v", ipStr, err)
 			continue
 		}
 
@@ -225,23 +233,25 @@ func addTrailingDot(domain string) string {
 func sendResponse(w dns.ResponseWriter, resp *dns.Msg, rcode uint16) {
 	resp.Authoritative = true
 	resp.Rcode = rcode
+	metrics.ResponsesTotal.WithLabelValues(dns.RcodeToString[rcode]).Inc()
 	if err := resp.Pack(); err != nil {
-		log.Printf("Pack error: %v", err)
+		utils.LogError("Pack error: %v", err)
 		return
 	}
 	if _, err := io.Copy(w, resp); err != nil {
-		log.Printf("DNS write error: %v", err)
+		utils.LogError("DNS write error: %v", err)
 	}
 }
 
 func sendErrorResponse(w dns.ResponseWriter, resp *dns.Msg, rcode uint16) {
 	resp.Rcode = rcode
-	resp.Answer = nil // Очищаем ответы для ошибок
+	resp.Answer = nil
+	metrics.ResponsesTotal.WithLabelValues(dns.RcodeToString[rcode]).Inc()
 	if err := resp.Pack(); err != nil {
-		log.Printf("Pack error: %v", err)
+		utils.LogError("Pack error: %v", err)
 		return
 	}
 	if _, err := io.Copy(w, resp); err != nil {
-		log.Printf("DNS write error: %v", err)
+		utils.LogError("DNS write error: %v", err)
 	}
 }

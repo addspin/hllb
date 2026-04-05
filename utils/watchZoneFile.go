@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"log"
 	"time"
 )
 
@@ -16,7 +15,7 @@ func WatchZoneFile(path string, interval time.Duration) {
 		}
 
 		if currentHash != lastHash {
-			log.Printf("Hash changed [%s], reloading zone %s", currentHash[:8], path)
+			LogInfo("Hash changed [%s], reloading zone %s", currentHash[:8], path)
 			InitZone()
 			lastHash = currentHash
 		}
