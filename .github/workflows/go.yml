@@ -12,53 +12,61 @@ on:
         default: false
 
 jobs:
-  build-linux:
-    name: Build Linux (CGO)
+  build-linux-amd64:
+    name: Build Linux amd64 (CGO static musl)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.3'
-
-      - name: Install toolchains for CGO
-        run: |
-          set -eux
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config tar
-          # кросс-компилятор для linux/arm64
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          # при необходимости внешние C-зависимости:
-          # sudo apt-get install -y libssl-dev
-
-      - name: Build (linux amd64/arm64) with CGO
-        env:
-          CGO_ENABLED: "1"
+      - name: Build linux/amd64 static
         run: |
           set -euxo pipefail
           mkdir -p dist
-          # GOOS GOARCH CC
-          targets=(
-            "linux amd64 gcc"
-            "linux arm64 aarch64-linux-gnu-gcc"
-          )
-          for t in "${targets[@]}"; do
-            read -r GOOS GOARCH CCNAME <<<"$t"
-            BIN="hllb-${GOOS}-${GOARCH}"
-            echo "==> Building ${BIN} with CC=${CCNAME}"
-            CC="$CCNAME" GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=1 \
-              go build -trimpath -ldflags="-s -w" -o "dist/${BIN}" .
-            ls -l "dist/${BIN}"
-            (cd dist && tar -czf "${BIN}.tar.gz" "${BIN}" && rm -f "${BIN}")
-          done
-          ls -l dist
+          BIN="hllb-linux-amd64"
+          docker run --rm \
+            -v "${{ github.workspace }}:/app" \
+            -w /app \
+            golang:1.25-alpine \
+            sh -c "apk add --no-cache gcc musl-dev && \
+              CGO_ENABLED=1 go build -trimpath \
+                -ldflags='-linkmode external -extldflags \"-static\" -s -w' \
+                -o dist/${BIN} ."
+          ls -l "dist/${BIN}"
+          (cd dist && tar -czf "${BIN}.tar.gz" "${BIN}" && rm -f "${BIN}")
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bins-linux
+          name: bins-linux-amd64
+          path: dist/*
+          retention-days: 7
+
+  build-linux-arm64:
+    name: Build Linux arm64 (CGO static musl)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build linux/arm64 static
+        run: |
+          set -euxo pipefail
+          mkdir -p dist
+          BIN="hllb-linux-arm64"
+          docker run --rm \
+            -v "${{ github.workspace }}:/app" \
+            -w /app \
+            golang:1.25-alpine \
+            sh -c "apk add --no-cache gcc musl-dev && \
+              CGO_ENABLED=1 go build -trimpath \
+                -ldflags='-linkmode external -extldflags \"-static\" -s -w' \
+                -o dist/${BIN} ."
+          ls -l "dist/${BIN}"
+          (cd dist && tar -czf "${BIN}.tar.gz" "${BIN}" && rm -f "${BIN}")
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bins-linux-arm64
           path: dist/*
           retention-days: 7
 
@@ -102,7 +110,7 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-linux, build-macos]
+    needs: [build-linux-amd64, build-linux-arm64, build-macos]
     permissions:
       contents: write
 
